@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -610,65 +611,38 @@
     return 'OURO-' + Date.now().toString(36).toUpperCase().slice(-6);
   }
 
-  async function getColumnIds() {
-    if (Object.keys(columnMap).length > 0) return columnMap;
-    const res = await fetch(`https://api.smartsheet.com/2.0/sheets/${SMARTSHEET_SHEET_ID}?include=columns`, {
-      headers: { 'Authorization': `Bearer ${SMARTSHEET_TOKEN}` }
-    });
-    const data = await res.json();
-    if (!data.columns) throw new Error('Planilha não encontrada. Verifique o Sheet ID.');
-    data.columns.forEach(col => { columnMap[col.title] = col.id; });
-    return columnMap;
-  }
+  const MAKE_WEBHOOK = 'https://hook.us2.make.com/xm1uwbadrigpaaxg7bw12uat00uhq4pa';
 
   async function submitIdeia() {
     const btn = document.getElementById('submit-btn');
     btn.disabled = true;
     btn.textContent = 'Enviando...';
 
-    if (!CONFIGURED) {
-      alert('⚠️ Configure o Token e Sheet ID do Smartsheet no início do código JavaScript.\n\nConsulte o guia de configuração incluído no arquivo.');
-      btn.disabled = false;
-      btn.textContent = 'Enviar Ideia ✦';
-      return;
-    }
-
     try {
       const id = generateId();
-      const cols = await getColumnIds();
 
-      const cellsMap = {
-        'Protocolo': id,
-        'Data': new Date().toLocaleDateString('pt-BR'),
-        'Colaborador': isAnon ? 'Anônimo' : document.getElementById('nome').value.trim(),
-        'Área': isAnon ? '—' : document.getElementById('area').value.trim(),
-        'E-mail': isAnon ? '—' : document.getElementById('email').value.trim(),
-        'Categoria': selectedCategory,
-        'Título da Ideia': document.getElementById('titulo').value.trim(),
-        'Problema / Oportunidade': document.getElementById('problema').value.trim(),
-        'Proposta de Solução': document.getElementById('solucao').value.trim(),
-        'Resultado Esperado': document.getElementById('resultado').value.trim(),
-        'Impacto Estimado': impactLabels[document.getElementById('impacto').value],
-        'Status': 'Em análise',
-        'Responsável pela Avaliação': '',
-        'Observações': ''
+      const payload = {
+        Protocolo: id,
+        Data: new Date().toLocaleDateString('pt-BR'),
+        Colaborador: isAnon ? 'Anônimo' : document.getElementById('nome').value.trim(),
+        Area: isAnon ? '—' : document.getElementById('area').value.trim(),
+        Email: isAnon ? '—' : document.getElementById('email').value.trim(),
+        Categoria: selectedCategory,
+        Titulo: document.getElementById('titulo').value.trim(),
+        Problema: document.getElementById('problema').value.trim(),
+        Solucao: document.getElementById('solucao').value.trim(),
+        Resultado: document.getElementById('resultado').value.trim(),
+        Impacto: impactLabels[document.getElementById('impacto').value],
+        Status: 'Em análise'
       };
 
-      const cells = Object.entries(cellsMap)
-        .filter(([title]) => cols[title])
-        .map(([title, value]) => ({ columnId: cols[title], value: value || '' }));
-
-      const res = await fetch(`https://api.smartsheet.com/2.0/sheets/${SMARTSHEET_SHEET_ID}/rows`, {
+      const res = await fetch(MAKE_WEBHOOK, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${SMARTSHEET_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify([{ toBottom: true, cells }])
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
       });
 
-      const result = await res.json();
-      if (!res.ok) throw new Error(result.message || 'Erro ao enviar para o Smartsheet.');
+      if (!res.ok) throw new Error('Erro ao enviar. Tente novamente.');
 
       document.getElementById('form-area').style.display = 'none';
       document.getElementById('main-header').style.display = 'none';
@@ -678,7 +652,7 @@
 
     } catch (err) {
       console.error(err);
-      alert('Erro ao enviar: ' + err.message + '\n\nVerifique o Token e o Sheet ID nas configurações.');
+      alert('Erro ao enviar: ' + err.message);
       btn.disabled = false;
       btn.textContent = 'Enviar Ideia ✦';
     }
